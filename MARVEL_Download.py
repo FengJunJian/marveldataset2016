@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
-from urllib2 import urlopen
+from urllib.request import urlopen
+import urllib.request as request
 from PIL import Image
 import traceback
 import threading
@@ -18,7 +19,7 @@ NUMBER_OF_WORKERS = 10
 MAX_NUM_OF_FILES_IN_FOLDER = 5000
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
-ORIGINAL_SIZE = 0 # 1 for yes, 0 for no
+ORIGINAL_SIZE = 1 # 1 for yes, 0 for no
 JUST_IMAGE = 1 # 1 for yes, 0 for no
 
 
@@ -37,7 +38,10 @@ logging.debug("Process started at " + str(datetime.datetime.now()))
 
 def save_image(ID,justImage,outFolder):
     url = sourceLink + ID
-    html = urlopen(url,timeout = 300).read()
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0'}
+    req=request.Request(url=url,headers=headers)
+    html=urlopen(req,timeout=300).read()
+    # html = urlopen(url,timeout = 300).read()
     soup = BeautifulSoup(html,"lxml")
 
     images = [img for img in soup.findAll('img')]
@@ -45,18 +49,19 @@ def save_image(ID,justImage,outFolder):
     if not justImage:
         tags = [tr for tr in soup.findAll('td')]
         tr_text = [each.getText() for each in tags]
-        
+
     filename = " "
     for each in image_links:
         if "http" in each and "jpg" in each and "photos/middle" in each:
             filename=each.split('/')[-1]
-            f = urlopen(each)
+
+            f = urlopen(request.Request(url=each, headers=headers))
             with open(os.path.join(outFolder,filename), "wb") as local_file:
                 local_file.write(f.read())
             if ORIGINAL_SIZE == 0:
                 img = Image.open(os.path.join(outFolder,filename)).resize((IMAGE_HEIGHT,IMAGE_WIDTH), Image.ANTIALIAS)
                 os.remove(os.path.join(outFolder,filename))
-                out = file(os.path.join(outFolder,filename),"wb")
+                out = open(os.path.join(outFolder,filename),"wb")
                 img.save(out,"JPEG")
             break
         
@@ -140,6 +145,7 @@ logging.debug("%s files will be downloaded" % numOfFiles)
 
 threads = []
 imageCount = 0
+#worker(finalContent[imageCount:imageCount + numOfFilesPerEachWorker[0]],0,)
 for i in range(0,NUMBER_OF_WORKERS):
     t = threading.Thread(name='Worker'+str(i), target=worker, args=(finalContent[imageCount:imageCount + numOfFilesPerEachWorker[i]],i,))
     imageCount = imageCount + numOfFilesPerEachWorker[i]
